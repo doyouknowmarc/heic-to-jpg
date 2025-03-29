@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HEIC to JPG Converter</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; }
+    img { max-width: 300px; display: block; margin: 0.5rem 0; }
+    .file-box { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>HEIC to JPG Converter</h1>
+  <p>Select one or more HEIC files to convert to JPG.</p>
+  <input type="file" id="file-input" accept=".heic" multiple>
+  <div id="output"></div>
+
+  <!-- Include the heic2any library from CDN -->
+  <script src="https://unpkg.com/heic2any/dist/heic2any.min.js"></script>
+  <script>
+    document.getElementById('file-input').addEventListener('change', async (event) => {
+      const files = event.target.files;
+      const output = document.getElementById('output');
+      output.innerHTML = '';
+      
+      for (const file of files) {
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'file-box';
+        fileDiv.innerHTML = `<p>Converting ${file.name}...</p>`;
+        output.appendChild(fileDiv);
+
+        try {
+          const convertedBlob = await heic2any({
+            blob: file,
+            toType: "image/jpeg",
+            quality: 0.8
+          });
+          
+          const url = URL.createObjectURL(convertedBlob);
+          const img = document.createElement('img');
+          img.src = url;
+          
+          const downloadLink = document.createElement('a');
+          downloadLink.href = url;
+          downloadLink.download = file.name.replace(/\.heic$/i, '.jpg');
+          downloadLink.textContent = "Download JPG";
+          
+          fileDiv.innerHTML = `<p>Converted ${file.name}</p>`;
+          fileDiv.appendChild(img);
+          fileDiv.appendChild(downloadLink);
+        } catch (error) {
+          fileDiv.innerHTML = `<p>Error converting ${file.name}: ${error}</p>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>

@@ -2,55 +2,183 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HEIC to JPG Converter</title>
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; }
-    img { max-width: 300px; display: block; margin: 0.5rem 0; }
-    .file-box { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 90%;
+      max-width: 600px;
+      background: #fff;
+      margin-top: 40px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .dropzone {
+      border: 2px dashed #aaa;
+      padding: 40px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.3s, background-color 0.3s;
+      margin-bottom: 20px;
+    }
+    .dropzone.hover {
+      border-color: #333;
+      background-color: #f0f0f0;
+    }
+    .thumbnails {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .thumbnail {
+      max-width: 150px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button {
+      background-color: #333;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #555;
+    }
+    #status {
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
-  <h1>HEIC to JPG Converter</h1>
-  <p>Select one or more HEIC files to convert to JPG.</p>
-  <input type="file" id="file-input" accept=".heic" multiple>
-  <div id="output"></div>
+  <div class="container">
+    <h1>HEIC to JPG Converter</h1>
+    <div id="dropzone" class="dropzone">
+      <p>Drop your HEIC files here or click to select them</p>
+      <input type="file" id="file-input" accept=".heic" multiple style="display:none;">
+    </div>
+    <div id="status"></div>
+    <div class="thumbnails" id="thumbnails"></div>
+    <button id="download-all" style="display:none;">Download All as ZIP</button>
+  </div>
 
-  <!-- Include the heic2any library from CDN -->
+  <!-- Include the heic2any library -->
   <script src="https://unpkg.com/heic2any/dist/heic2any.min.js"></script>
+  <!-- Include JSZip library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
   <script>
-    document.getElementById('file-input').addEventListener('change', async (event) => {
-      const files = event.target.files;
-      const output = document.getElementById('output');
-      output.innerHTML = '';
-      
-      for (const file of files) {
-        const fileDiv = document.createElement('div');
-        fileDiv.className = 'file-box';
-        fileDiv.innerHTML = `<p>Converting ${file.name}...</p>`;
-        output.appendChild(fileDiv);
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const thumbnailsDiv = document.getElementById('thumbnails');
+    const statusDiv = document.getElementById('status');
+    const downloadAllButton = document.getElementById('download-all');
+    
+    // Store converted files (array of objects: {name, blob})
+    let convertedFiles = [];
 
-        try {
-          const convertedBlob = await heic2any({
-            blob: file,
-            toType: "image/jpeg",
-            quality: 0.8
-          });
-          
-          const url = URL.createObjectURL(convertedBlob);
-          const img = document.createElement('img');
-          img.src = url;
-          
-          const downloadLink = document.createElement('a');
-          downloadLink.href = url;
-          downloadLink.download = file.name.replace(/\.heic$/i, '.jpg');
-          downloadLink.textContent = "Download JPG";
-          
-          fileDiv.innerHTML = `<p>Converted ${file.name}</p>`;
-          fileDiv.appendChild(img);
-          fileDiv.appendChild(downloadLink);
-        } catch (error) {
-          fileDiv.innerHTML = `<p>Error converting ${file.name}: ${error}</p>`;
+    // Trigger file input on dropzone click
+    dropzone.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // Handle file selection from file input
+    fileInput.addEventListener('change', (event) => {
+      handleFiles(event.target.files);
+    });
+
+    // Handle drag and drop events
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('hover');
+    });
+    dropzone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('hover');
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('hover');
+      const files = e.dataTransfer.files;
+      handleFiles(files);
+    });
+
+    async function handleFiles(files) {
+      statusDiv.innerHTML = '<p>Converting files...</p>';
+      convertedFiles = [];
+      thumbnailsDiv.innerHTML = '';
+      downloadAllButton.style.display = 'none';
+
+      const fileArray = Array.from(files);
+      for (const file of fileArray) {
+        if (file.name.toLowerCase().endsWith('.heic')) {
+          try {
+            const convertedBlob = await heic2any({
+              blob: file,
+              toType: "image/jpeg",
+              quality: 0.8
+            });
+            const url = URL.createObjectURL(convertedBlob);
+            // Create and display thumbnail
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = file.name;
+            img.className = 'thumbnail';
+            thumbnailsDiv.appendChild(img);
+            // Store converted file data
+            const jpgName = file.name.replace(/\.heic$/i, '.jpg');
+            convertedFiles.push({ name: jpgName, blob: convertedBlob });
+          } catch (error) {
+            console.error(`Error converting ${file.name}:`, error);
+          }
+        } else {
+          console.warn(`${file.name} is not a HEIC file, skipping.`);
         }
+      }
+      if (convertedFiles.length > 0) {
+        statusDiv.innerHTML = `<p>Converted ${convertedFiles.length} file(s).</p>`;
+        downloadAllButton.style.display = 'inline-block';
+      } else {
+        statusDiv.innerHTML = '<p>No valid HEIC files were converted.</p>';
+      }
+    }
+
+    // Create a ZIP archive and download all converted files
+    downloadAllButton.addEventListener('click', async () => {
+      const zip = new JSZip();
+      convertedFiles.forEach(file => {
+        zip.file(file.name, file.blob);
+      });
+      statusDiv.innerHTML = '<p>Preparing ZIP file...</p>';
+      try {
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = zipUrl;
+        a.download = "converted_images.zip";
+        a.click();
+        statusDiv.innerHTML = '<p>ZIP download started!</p>';
+      } catch (error) {
+        statusDiv.innerHTML = '<p>Error creating ZIP file.</p>';
       }
     });
   </script>
